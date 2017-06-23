@@ -82,8 +82,11 @@
 
             var resetTreeGridRows = function (index) {
                 var indexes = [];
-                if (index) {
+                if (index instanceof Number) {/*add:param ary,fix:[if(index)...]'index===0' @autor:sdjkjkjjk*/
                     indexes.push(index);
+                }
+                else if(index instanceof Array) {
+                    indexes = index ;
                 }
                 else {
                     for (var prop in treeGridRows) {
@@ -92,9 +95,18 @@
                         }
                     }
                 }
+                /*add:before modify treeGridRows .@autor:sdjkjkjjk*/
+                var oldTreeGridRowsItem = {};
+                for(var it in treeGridRows) {
+                    if(it * 1 === index)
+                        continue ;
+                    oldTreeGridRowsItem[it] = dataTable.row(it).node() ;
+                }
                 indexes.forEach(function (index) {
                     var subRows = treeGridRows[index];
                     if (subRows && subRows.length) {
+
+
                         subRows.forEach(function (node) {
                             dataTable.row($(node)).remove();
                             $(node).remove();
@@ -104,8 +116,20 @@
                             $(td).removeClass('treegrid-control-open').addClass('treegrid-control');
                             $(td).html('').append(expandIcon.clone());
                         });
+
+
                     }
                 });
+                /*add:after modify treeGridRows .@autor:sdjkjkjjk*/
+                for(var it in treeGridRows) {
+                    var newIndex = dataTable.rows($(oldTreeGridRowsItem[it])).indexes()[0] ;
+                    treeGridRows[newIndex] = treeGridRows[it] ;
+                    if(newIndex !== it * 1){
+                        delete treeGridRows[it];
+                        $(dataTable.row("[parent-index='" + it + "']").node()).attr('parent-index',newIndex) ;
+                    }
+
+                }
             };
 
             var resetEvenOddClass = function (dataTable) {
@@ -173,7 +197,8 @@
                 td.html('').append(icon);
 
                 var index = dataTable.row(this).index();
-                resetTreeGridRows(index);
+                var indexAry = getChildrenCollapseIndexs(dataTable,index) ;/*fix:index ary @autor:sdjkjkjjk*/
+                resetTreeGridRows(indexAry);
                 resetEvenOddClass(dataTable);
                 select && setTimeout(function () {
                     dataTable.rows(selectedIndexes).select();
@@ -224,6 +249,29 @@
             });
         }
     });
+    function getChildrenCollapseIndexs(dataTable,index) {
+        var ret = [] ;
+
+        var $filted = $(dataTable.rows('[parent-index="' + index + '"]').nodes()) ;
+        ret.push(index) ;
+
+        var ary = [] ;
+        do {
+            ary = [] ;
+            for(var i = 0 ;i < $filted.length ;i ++) {
+                var f = $filted[i] ;
+                var parentIndex = dataTable.rows(f).indexes()[0] ;
+                var $filted2 = $(dataTable.rows('[parent-index="' + parentIndex + '"]').nodes()) ;
+                if($filted2.length > 0) {
+                    ret.push(parentIndex) ;
+                    ary = ary.concat($filted2) ;
+                }
+            }
+            $.extend($filted,ary,true) ;
+        }while(ary.length > 0) ;
+
+        return ret ;
+    }
 
     function selectParent(dataTable, index) {
         var row = dataTable.row(index);
